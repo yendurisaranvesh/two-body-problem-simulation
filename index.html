@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Two-Body Problem Lab — Interactive 3D Gravitational Simulator</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+
+  <!-- 3D canvas lives behind everything -->
+  <div id="stage"></div>
+
+  <!-- ===================================================== CONFIG SCREEN -->
+  <section id="config" class="screen active" aria-label="Configuration">
+    <header class="cfg-header">
+      <div class="brand">
+        <div class="brand-mark"><span class="dot c"></span><span class="dot a"></span></div>
+        <div>
+          <h1>Two-Body Problem <span class="thin">Lab</span></h1>
+          <p class="sub">Interactive 3D gravitational dynamics · Velocity Verlet integrator</p>
+        </div>
+      </div>
+      <div class="presets">
+        <span class="label">Scenarios</span>
+        <button class="chip" data-preset="circular">Circular orbit</button>
+        <button class="chip" data-preset="ellipse">Elliptical</button>
+        <button class="chip" data-preset="binary">Equal-mass binary</button>
+        <button class="chip" data-preset="planet">Star &amp; planet</button>
+        <button class="chip" data-preset="escape">Escape (hyperbolic)</button>
+        <button class="chip" data-preset="inclined">Tilted 3D orbit</button>
+        <button class="chip" data-preset="drift">Moving centre of mass</button>
+        <button class="chip" data-preset="collision">Head-on fall</button>
+      </div>
+    </header>
+
+    <div class="cfg-grid">
+      <!-- Body 1 -->
+      <article class="card body-card cyan" data-body="1">
+        <div class="card-head">
+          <h2><span class="swatch"></span>Body 1</h2>
+          <span class="tag">Electric cyan</span>
+        </div>
+        <div class="preview" id="preview1"></div>
+        <div class="field">
+          <div class="field-top"><label for="m1">Mass <i>m₁</i></label>
+            <input type="number" class="num" id="m1n" step="any" min="0.1" max="2000" /></div>
+          <input type="range" id="m1" min="0" max="1" step="0.001" data-log="0.1,2000" />
+        </div>
+        <div class="field">
+          <div class="field-top"><label for="R1">Radius <i>R₁</i></label>
+            <input type="number" class="num" id="R1n" step="any" min="0.1" max="8" /></div>
+          <input type="range" id="R1" min="0.1" max="8" step="0.01" />
+        </div>
+        <p class="hint">Mass and radius are independent: the radius changes only the size you see and the collision distance.</p>
+      </article>
+
+      <!-- Orbit set-up -->
+      <article class="card setup-card">
+        <div class="card-head"><h2>Initial conditions</h2><span class="tag">Simulation units</span></div>
+
+        <div class="field">
+          <div class="field-top"><label for="sep">Initial separation <i>d</i></label>
+            <input type="number" class="num" id="sepn" step="any" min="2" max="200" /></div>
+          <input type="range" id="sep" min="2" max="200" step="0.1" />
+        </div>
+        <div class="field">
+          <div class="field-top"><label for="vf">Relative speed <i>v / v<sub>circ</sub></i></label>
+            <input type="number" class="num" id="vfn" step="0.01" min="0" max="2" /></div>
+          <input type="range" id="vf" min="0" max="2" step="0.005" />
+          <div class="scale-marks"><span>0 · fall</span><span>1 · circle</span><span>√2 · escape</span><span>2</span></div>
+        </div>
+        <div class="field-row">
+          <div class="field">
+            <div class="field-top"><label for="va">Launch angle</label>
+              <input type="number" class="num" id="van" step="1" min="-80" max="80" /></div>
+            <input type="range" id="va" min="-80" max="80" step="1" />
+          </div>
+          <div class="field">
+            <div class="field-top"><label for="inc">Inclination</label>
+              <input type="number" class="num" id="incn" step="1" min="0" max="90" /></div>
+            <input type="range" id="inc" min="0" max="90" step="1" />
+          </div>
+        </div>
+        <div class="field-row">
+          <div class="field">
+            <div class="field-top"><label for="vcm">COM drift speed</label>
+              <input type="number" class="num" id="vcmn" step="0.01" min="0" max="5" /></div>
+            <input type="range" id="vcm" min="0" max="5" step="0.01" />
+          </div>
+          <div class="field">
+            <div class="field-top"><label for="G">Gravitational const. <i>G</i></label>
+              <input type="number" class="num" id="Gn" step="any" min="0.01" max="20" /></div>
+            <input type="range" id="G" min="0" max="1" step="0.001" data-log="0.01,20" />
+          </div>
+        </div>
+
+        <div class="prediction" id="prediction"></div>
+      </article>
+
+      <!-- Body 2 -->
+      <article class="card body-card amber" data-body="2">
+        <div class="card-head">
+          <h2><span class="swatch"></span>Body 2</h2>
+          <span class="tag">Golden amber</span>
+        </div>
+        <div class="preview" id="preview2"></div>
+        <div class="field">
+          <div class="field-top"><label for="m2">Mass <i>m₂</i></label>
+            <input type="number" class="num" id="m2n" step="any" min="0.1" max="2000" /></div>
+          <input type="range" id="m2" min="0" max="1" step="0.001" data-log="0.1,2000" />
+        </div>
+        <div class="field">
+          <div class="field-top"><label for="R2">Radius <i>R₂</i></label>
+            <input type="number" class="num" id="R2n" step="any" min="0.1" max="8" /></div>
+          <input type="range" id="R2" min="0.1" max="8" step="0.01" />
+        </div>
+        <p class="hint">A heavier body moves less: both orbit their shared centre of mass, with distances in the ratio m₂ : m₁.</p>
+      </article>
+    </div>
+
+    <footer class="cfg-footer">
+      <label class="check"><input type="checkbox" id="playIntro" checked /> Play cinematic intro</label>
+      <button id="launch" class="launch">
+        <span>LAUNCH SIMULATION</span>
+        <svg viewBox="0 0 24 24" width="20" height="20"><path d="M5 12h14M13 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+    </footer>
+  </section>
+
+  <!-- ======================================================== SIM SCREEN -->
+  <section id="sim" class="screen" aria-label="Simulation">
+    <!-- top bar -->
+    <div class="topbar glass">
+      <div class="brand small">
+        <div class="brand-mark"><span class="dot c"></span><span class="dot a"></span></div>
+        <strong>Two-Body Lab</strong>
+      </div>
+      <div class="top-stats">
+        <div><span class="k">t</span><span class="v mono" id="tTime">0.00</span></div>
+        <div><span class="k">orbits</span><span class="v mono" id="tOrbits">0.00</span></div>
+        <div><span class="k">orbit</span><span class="badge" id="tType">—</span></div>
+      </div>
+      <div class="top-actions">
+        <button class="btn ghost" id="btnHelp" title="What am I looking at? (?)">? Guide</button>
+        <button class="btn ghost" id="btnHide" title="Hide panels (H)">Hide UI</button>
+        <button class="btn" id="btnReconfig">⟵ Configure</button>
+      </div>
+    </div>
+
+    <!-- left: controls -->
+    <aside class="panel left glass" id="panelControls">
+      <h3>Simulation</h3>
+      <div class="transport">
+        <button class="btn icon" id="btnPlay" title="Play / pause (Space)">❚❚</button>
+        <button class="btn icon" id="btnStep" title="Single step (.)">⏭</button>
+        <button class="btn icon" id="btnReset" title="Reset to t = 0 (R)">↺</button>
+      </div>
+      <div class="field compact">
+        <div class="field-top"><label>Speed</label><span class="mono val" id="speedVal">1.0×</span></div>
+        <input type="range" id="speed" min="-3" max="4" step="0.01" value="0" />
+      </div>
+      <div class="field compact">
+        <div class="field-top"><label>Time-step Δt</label><span class="mono val" id="dtVal"></span></div>
+        <input type="range" id="dt" min="-5" max="-1.5" step="0.01" value="-4" />
+        <small class="muted">Per Verlet step, as a fraction of the circular period T</small>
+      </div>
+      <label class="check"><input type="checkbox" id="optAdaptive" /> Adaptive Δt (close passes)</label>
+
+      <h3>Display</h3>
+      <div class="toggles">
+        <label class="check"><input type="checkbox" id="optTrails" checked /> Trails</label>
+        <label class="check"><input type="checkbox" id="optConic" /> Kepler orbit</label>
+        <label class="check"><input type="checkbox" id="optVel" checked /> Velocity</label>
+        <label class="check"><input type="checkbox" id="optForce" /> Force</label>
+        <label class="check"><input type="checkbox" id="optCom" checked /> Centre of mass</label>
+        <label class="check"><input type="checkbox" id="optLine" /> Link line</label>
+        <label class="check"><input type="checkbox" id="optWell" checked /> Gravity well</label>
+        <label class="check"><input type="checkbox" id="optLabels" checked /> Labels</label>
+      </div>
+      <div class="field compact">
+        <div class="field-top"><label>Trail length</label><span class="mono val" id="trailVal"></span></div>
+        <input type="range" id="trailLen" min="100" max="6000" step="50" value="1800" />
+      </div>
+
+      <h3>Camera</h3>
+      <div class="seg" id="camSeg">
+        <button data-cam="orbit" class="on">Free</button>
+        <button data-cam="top">Top</button>
+        <button data-cam="side">Side</button>
+        <button data-cam="b1">Body 1</button>
+        <button data-cam="b2">Body 2</button>
+      </div>
+      <label class="check"><input type="checkbox" id="optFollow" checked /> Keep centre of mass in view</label>
+      <small class="muted">Drag to rotate · right-drag to pan · scroll to zoom</small>
+    </aside>
+
+    <!-- right: live data -->
+    <aside class="panel right glass" id="panelData">
+      <h3>Live telemetry</h3>
+      <div class="bodies-data">
+        <div class="bd cyan"><div class="bd-h"><span class="swatch"></span>Body 1</div>
+          <div class="kv"><span>mass</span><b class="mono" id="d_m1"></b></div>
+          <div class="kv"><span>speed</span><b class="mono" id="d_v1"></b></div>
+          <div class="kv"><span>to COM</span><b class="mono" id="d_r1"></b></div>
+        </div>
+        <div class="bd amber"><div class="bd-h"><span class="swatch"></span>Body 2</div>
+          <div class="kv"><span>mass</span><b class="mono" id="d_m2"></b></div>
+          <div class="kv"><span>speed</span><b class="mono" id="d_v2"></b></div>
+          <div class="kv"><span>to COM</span><b class="mono" id="d_r2"></b></div>
+        </div>
+      </div>
+      <div class="kv"><span>Separation r</span><b class="mono" id="d_sep"></b></div>
+      <div class="kv"><span>Gravitational force F</span><b class="mono" id="d_F"></b></div>
+      <div class="kv"><span>Min / max separation</span><b class="mono" id="d_minmax"></b></div>
+
+      <h4>Conservation laws</h4>
+      <div class="kv"><span>Kinetic energy K</span><b class="mono" id="d_K"></b></div>
+      <div class="kv"><span>Potential energy U</span><b class="mono" id="d_U"></b></div>
+      <div class="kv"><span>Total energy E</span><b class="mono" id="d_E"></b></div>
+      <div class="kv"><span>Energy error ΔE/|E₀|</span><b class="mono" id="d_dE"></b></div>
+      <div class="kv"><span>Angular momentum |L|</span><b class="mono" id="d_L"></b></div>
+      <div class="kv"><span>ΔL/|L₀|</span><b class="mono" id="d_dL"></b></div>
+      <div class="kv"><span>Linear momentum |P|</span><b class="mono" id="d_P"></b></div>
+
+      <h4>Orbital elements (relative orbit)</h4>
+      <div class="kv"><span>Eccentricity e</span><b class="mono" id="d_e"></b></div>
+      <div class="kv"><span>Semi-major axis a</span><b class="mono" id="d_a"></b></div>
+      <div class="kv"><span>Periapsis / apoapsis</span><b class="mono" id="d_pa"></b></div>
+      <div class="kv"><span>Period T (Kepler III)</span><b class="mono" id="d_T"></b></div>
+      <div class="kv"><span>Reduced mass μ</span><b class="mono" id="d_mu"></b></div>
+    </aside>
+
+    <!-- bottom: charts + narrative -->
+    <div class="dock glass" id="dock">
+      <div class="dock-tabs">
+        <button class="on" data-chart="energy">Energy</button>
+        <button data-chart="sep">Separation</button>
+        <button data-chart="error">Energy error</button>
+        <span class="narrative" id="narrative"></span>
+      </div>
+      <canvas id="chart"></canvas>
+    </div>
+
+    <!-- floating labels -->
+    <div class="label3d cyan" id="lab1">Body 1</div>
+    <div class="label3d amber" id="lab2">Body 2</div>
+    <div class="label3d com" id="labCom">COM</div>
+
+    <!-- intro overlay -->
+    <div class="intro-overlay" id="introOverlay">
+      <div class="intro-caption" id="introCaption">Preparing the gravitational field…</div>
+      <button class="btn ghost" id="btnSkip">Skip animation ⏭</button>
+    </div>
+
+    <!-- collision banner -->
+    <div class="banner glass" id="collision">
+      <strong>Collision!</strong>
+      <span>The surfaces touched (r ≤ R₁ + R₂). Point-mass gravity no longer describes what happens next.</span>
+      <div class="banner-actions">
+        <button class="btn" id="btnCollReset">Reset</button>
+        <button class="btn ghost" id="btnCollIgnore">Ignore and continue</button>
+      </div>
+    </div>
+
+    <!-- guide -->
+    <div class="modal" id="guide">
+      <div class="modal-card glass">
+        <button class="close" id="guideClose" aria-label="Close">×</button>
+        <h2>What am I looking at?</h2>
+        <div class="guide-grid">
+          <div>
+            <h4>The idea</h4>
+            <p>Two bodies pull on each other with gravity. The force is <b>equal and opposite</b> (Newton's third law), and its size is
+              <span class="eq">F = G m₁ m₂ / r²</span>, so it gets four times stronger when the distance halves.</p>
+            <p>Because the forces are equal but the masses differ, the <b>lighter body accelerates more</b> (a = F/m). This is why it swings around more widely.</p>
+          </div>
+          <div>
+            <h4>The centre of mass</h4>
+            <p>The white crosshair marks the <b>centre of mass</b>. No outside force acts on the pair, so this point moves in a straight line at constant speed, or stays still. Both bodies orbit <i>it</i>, not each other's centre.</p>
+            <p>A two-body problem therefore reduces to a <b>one-body</b> problem: a single "reduced mass" μ = m₁m₂/(m₁+m₂) orbiting a fixed centre.</p>
+          </div>
+          <div>
+            <h4>Orbit shapes</h4>
+            <p>Total energy decides the shape. <b>E &lt; 0</b>: bound (circle or ellipse). <b>E = 0</b>: parabola, just escaping. <b>E &gt; 0</b>: hyperbola, the bodies fly apart for good.</p>
+            <p>The <b>gravity-well grid</b> is a picture of the potential energy, with deeper dips near heavier masses. It is a visual analogy only and plays no part in the computation.</p>
+          </div>
+          <div>
+            <h4>The numerics</h4>
+            <p>Each frame runs many <b>Velocity Verlet</b> steps:</p>
+            <p class="eq block">x ← x + vΔt + ½aΔt²<br/>a′ = F(x)/m<br/>v ← v + ½(a + a′)Δt</p>
+            <p>Verlet is <i>symplectic</i>: the energy error oscillates but does not grow. You can check this in the <b>Energy error</b> chart. If you make Δt larger, the wobble grows as Δt².</p>
+          </div>
+        </div>
+        <p class="keys"><kbd>Space</kbd> play/pause · <kbd>R</kbd> reset · <kbd>.</kbd> step · <kbd>T</kbd> trails · <kbd>K</kbd> Kepler orbit · <kbd>1–5</kbd> cameras · <kbd>H</kbd> hide UI · <kbd>?</kbd> guide</p>
+      </div>
+    </div>
+  </section>
+
+  <noscript><div class="fatal">This simulator needs JavaScript.</div></noscript>
+  <div class="fatal" id="fatal" hidden></div>
+
+  <!-- Three.js (global build) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+  <!-- Physics layer (no rendering dependencies) -->
+  <script src="js/physics/vec3.js"></script>
+  <script src="js/physics/TwoBodySystem.js"></script>
+
+  <!-- Rendering layer -->
+  <script src="js/render/textures.js"></script>
+  <script src="js/render/CameraRig.js"></script>
+  <script src="js/render/SceneRenderer.js"></script>
+  <script src="js/render/IntroAnimation.js"></script>
+  <script src="js/render/BodyPreview.js"></script>
+
+  <!-- UI layer -->
+  <script src="js/ui/format.js"></script>
+  <script src="js/ui/ConfigScreen.js"></script>
+  <script src="js/ui/Charts.js"></script>
+  <script src="js/ui/SimulationUI.js"></script>
+
+  <!-- Orchestration -->
+  <script src="js/main.js"></script>
+</body>
+</html>
